@@ -107,8 +107,15 @@ if st.sidebar.button("🔎 Tampilkan Visualisasi"):
                       u.values[::1, ::1], v.values[::1, ::1],
                       transform=ccrs.PlateCarree(), scale=500, width=0.002, color='black')
 
+    # Tambahkan fitur peta
     ax.coastlines(resolution='10m', linewidth=0.8)
     ax.add_feature(cfeature.BORDERS, linestyle=':')
     ax.add_feature(cfeature.LAND, facecolor='lightgray')
+
+    # Tambahkan titik lokasi dan nama kota
+    lon_kota, lat_kota = 106.655, -6.125
+    ax.plot(lon_kota, lat_kota, marker='o', color='red', markersize=6, transform=ccrs.PlateCarree())
+    ax.text(lon_kota + 0.1, lat_kota + 0.1, "Cengkareng (Soetta)", fontsize=9, fontweight='bold', color='black',
+            transform=ccrs.PlateCarree(), bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.2'))
 
     st.pyplot(fig)
