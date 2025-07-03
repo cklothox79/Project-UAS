@@ -6,12 +6,12 @@ import cartopy.feature as cfeature
 import pandas as pd
 from datetime import datetime
 
-st.set_page_config(page_title="Prakiraan Cuaca Wilayah Indonesia", layout="wide")
+st.set_page_config(page_title="Prakiraan Cuaca Bandara Soetta", layout="wide")
 
-st.title("📡 Global Forecast System Viewer (Realtime via NOMADS)")
+st.title("📡 GFS Viewer Area Bandara Soetta (Realtime via NOMADS)")
 st.header("Web Hasil Pembelajaran Pengelolaan Informasi Meteorologi")
 
-# ⬇️ Identitas Mahasiswa
+# Identitas mahasiswa
 st.markdown("**HANI GUNAWAN**  \n*UAS PIM M8TB 2025*")
 
 @st.cache_data
@@ -37,6 +37,9 @@ parameter = st.sidebar.selectbox("Parameter", [
 if st.sidebar.button("🔎 Tampilkan Visualisasi"):
     try:
         ds = load_dataset(run_date.strftime("%Y%m%d"), run_hour)
+        if forecast_hour >= len(ds.time):
+            st.error("Data untuk jam ke-{} belum tersedia.".format(forecast_hour))
+            st.stop()
         st.success("Dataset berhasil dimuat.")
     except Exception as e:
         st.error(f"Gagal memuat data: {e}")
@@ -70,29 +73,25 @@ if st.sidebar.button("🔎 Tampilkan Visualisasi"):
         st.warning("Parameter tidak dikenali.")
         st.stop()
 
-    # Filter wilayah Indonesia: 90 - 150 BT (lon), -15 - 15 LS/LU (lat)
-    var = var.sel(lat=slice(-15, 15), lon=slice(90, 150))
+    # Fokus area Bandara Soetta (Cengkareng)
+    var = var.sel(lat=slice(-7, -5), lon=slice(105, 108))
 
     if is_vector:
-        u = u.sel(lat=slice(-15, 15), lon=slice(90, 150))
-        v = v.sel(lat=slice(-15, 15), lon=slice(90, 150))
+        u = u.sel(lat=slice(-7, -5), lon=slice(105, 108))
+        v = v.sel(lat=slice(-7, -5), lon=slice(105, 108))
 
-    # Buat plot dengan cartopy
-    fig = plt.figure(figsize=(10, 6))
+    # Buat plot
+    fig = plt.figure(figsize=(8, 6))
     ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.set_extent([90, 150, -15, 15], crs=ccrs.PlateCarree())
+    ax.set_extent([105, 108, -7, -5], crs=ccrs.PlateCarree())
 
-    # Format waktu validasi
     valid_time = ds.time[forecast_hour].values
     valid_dt = pd.to_datetime(str(valid_time))
     valid_str = valid_dt.strftime("%HUTC %a %d %b %Y")
     tstr = f"t+{forecast_hour:03d}"
 
-    title_left = f"{label} Valid {valid_str}"
-    title_right = f"GFS {tstr}"
-
-    ax.set_title(title_left, loc="left", fontsize=10, fontweight="bold")
-    ax.set_title(title_right, loc="right", fontsize=10, fontweight="bold")
+    ax.set_title(f"{label} Valid {valid_str}", loc="left", fontsize=10, fontweight="bold")
+    ax.set_title(f"GFS {tstr}", loc="right", fontsize=10, fontweight="bold")
 
     if is_contour:
         cs = ax.contour(var.lon, var.lat, var.values, levels=15, colors='black', linewidths=0.8, transform=ccrs.PlateCarree())
@@ -104,11 +103,10 @@ if st.sidebar.button("🔎 Tampilkan Visualisasi"):
         cbar = plt.colorbar(im, ax=ax, orientation='vertical', pad=0.02)
         cbar.set_label(label)
         if is_vector:
-            ax.quiver(var.lon[::5], var.lat[::5],
-                      u.values[::5, ::5], v.values[::5, ::5],
-                      transform=ccrs.PlateCarree(), scale=700, width=0.002, color='black')
+            ax.quiver(var.lon[::1], var.lat[::1],
+                      u.values[::1, ::1], v.values[::1, ::1],
+                      transform=ccrs.PlateCarree(), scale=500, width=0.002, color='black')
 
-    # Tambah fitur peta
     ax.coastlines(resolution='10m', linewidth=0.8)
     ax.add_feature(cfeature.BORDERS, linestyle=':')
     ax.add_feature(cfeature.LAND, facecolor='lightgray')
