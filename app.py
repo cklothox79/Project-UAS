@@ -12,7 +12,7 @@ st.title("📡 Global Forecast System Viewer (Realtime via NOMADS)")
 st.header("Web Hasil Pembelajaran Pengelolaan Informasi Meteorologi")
 
 # ⬇️ Identitas Mahasiswa
-st.markdown("**Ferri Kusuma**  \n*UAS PIM M8TB 2025*")
+st.markdown("**HANI GUNAWAN**  \n*UAS PIM M8TB 2025*")
 
 @st.cache_data
 def load_dataset(run_date, run_hour):
