@@ -12,7 +12,7 @@ st.title("📡 Global Forecast System Viewer (Realtime via NOMADS)")
 st.header("Web Hasil Pembelajaran Pengelolaan Informasi Meteorologi")
 
 # ⬇️ Identitas Mahasiswa
-st.markdown("**Hani Gunawan**  \n*UAS PIM M8TB 2025*")
+st.markdown("**Ferri Kusuma**  \n*UAS PIM M8TB 2025*")
 
 @st.cache_data
 def load_dataset(run_date, run_hour):
@@ -71,4 +71,46 @@ if st.sidebar.button("🔎 Tampilkan Visualisasi"):
         st.stop()
 
     # Filter wilayah Indonesia: 90 - 150 BT (lon), -15 - 15 LS/LU (lat)
-    var = var.sel(lat=slice(-15,
+    var = var.sel(lat=slice(-15, 15), lon=slice(90, 150))
+
+    if is_vector:
+        u = u.sel(lat=slice(-15, 15), lon=slice(90, 150))
+        v = v.sel(lat=slice(-15, 15), lon=slice(90, 150))
+
+    # Buat plot dengan cartopy
+    fig = plt.figure(figsize=(10, 6))
+    ax = plt.axes(projection=ccrs.PlateCarree())
+    ax.set_extent([90, 150, -15, 15], crs=ccrs.PlateCarree())
+
+    # Format waktu validasi
+    valid_time = ds.time[forecast_hour].values
+    valid_dt = pd.to_datetime(str(valid_time))
+    valid_str = valid_dt.strftime("%HUTC %a %d %b %Y")
+    tstr = f"t+{forecast_hour:03d}"
+
+    title_left = f"{label} Valid {valid_str}"
+    title_right = f"GFS {tstr}"
+
+    ax.set_title(title_left, loc="left", fontsize=10, fontweight="bold")
+    ax.set_title(title_right, loc="right", fontsize=10, fontweight="bold")
+
+    if is_contour:
+        cs = ax.contour(var.lon, var.lat, var.values, levels=15, colors='black', linewidths=0.8, transform=ccrs.PlateCarree())
+        ax.clabel(cs, fmt="%d", colors='black', fontsize=8)
+    else:
+        im = ax.pcolormesh(var.lon, var.lat, var.values,
+                           cmap=cmap, vmin=0, vmax=50,
+                           transform=ccrs.PlateCarree())
+        cbar = plt.colorbar(im, ax=ax, orientation='vertical', pad=0.02)
+        cbar.set_label(label)
+        if is_vector:
+            ax.quiver(var.lon[::5], var.lat[::5],
+                      u.values[::5, ::5], v.values[::5, ::5],
+                      transform=ccrs.PlateCarree(), scale=700, width=0.002, color='black')
+
+    # Tambah fitur peta
+    ax.coastlines(resolution='10m', linewidth=0.8)
+    ax.add_feature(cfeature.BORDERS, linestyle=':')
+    ax.add_feature(cfeature.LAND, facecolor='lightgray')
+
+    st.pyplot(fig)
