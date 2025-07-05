@@ -68,24 +68,24 @@ if st.sidebar.button("🔎 Tampilkan Visualisasi"):
         st.warning("Parameter tidak dikenali.")
         st.stop()
 
-    # Area DKI Jakarta (lebih luas dari Cengkareng)
+    # Area DKI Jakarta
     var = var.sel(lat=slice(-6.4, -5.9), lon=slice(106.6, 107.05))
     if is_vector:
         u = u.sel(lat=slice(-6.4, -5.9), lon=slice(106.6, 107.05))
         v = v.sel(lat=slice(-6.4, -5.9), lon=slice(106.6, 107.05))
 
     # Plot
-    fig = plt.figure(figsize=(8, 6))
+    fig = plt.figure(figsize=(9, 7))
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.set_extent([106.6, 107.05, -6.4, -5.9], crs=ccrs.PlateCarree())
 
     valid_time = ds.time[forecast_hour].values
     valid_dt = pd.to_datetime(str(valid_time))
     valid_str = valid_dt.strftime("%HUTC %a %d %b %Y")
-    tstr = f"t+{forecast_hour:03d}"
+    tstr = f"GFS t+{forecast_hour:03d}"
 
-    ax.set_title(f"{label} Valid {valid_str}", loc="left", fontsize=10, fontweight="bold")
-    ax.set_title(f"GFS {tstr}", loc="right", fontsize=10, fontweight="bold")
+    # Gunakan fig.suptitle satu baris
+    fig.suptitle(f"{label} | Valid {valid_str} | {tstr}", fontsize=12, fontweight="bold", y=0.95)
 
     if is_contour:
         cs = ax.contour(var.lon, var.lat, var.values, levels=15, colors='black', linewidths=0.8, transform=ccrs.PlateCarree())
@@ -106,7 +106,7 @@ if st.sidebar.button("🔎 Tampilkan Visualisasi"):
     ax.add_feature(cfeature.BORDERS, linestyle=':')
     ax.add_feature(cfeature.LAND, facecolor='lightgray')
 
-    # Titik lokasi utama di DKI Jakarta
+    # Titik-titik DKI Jakarta
     lokasi_jakarta = {
         "Jakarta Pusat": (106.8272, -6.1806),
         "Jakarta Barat": (106.7564, -6.1681),
