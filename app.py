@@ -6,13 +6,10 @@ import cartopy.feature as cfeature
 import pandas as pd
 from datetime import datetime
 
-st.set_page_config(page_title="Prakiraan Cuaca Bandara Soetta", layout="wide")
-
-st.title("📡 GFS Viewer Area Bandara Soetta (Realtime via NOMADS)")
+st.set_page_config(page_title="Prakiraan Cuaca DKI Jakarta", layout="wide")
+st.title("📡 GFS Viewer Provinsi DKI Jakarta (Realtime via NOMADS)")
 st.header("Web Hasil Pembelajaran Pengelolaan Informasi Meteorologi")
-
-# Identitas mahasiswa
-st.markdown("**HANI GUNAWAN**  \n*UAS PIM M8TB 2025*")
+st.markdown("**YANTI MALA**  \n*UAS PIM M8TB 2025*")
 
 @st.cache_data
 def load_dataset(run_date, run_hour):
@@ -21,8 +18,6 @@ def load_dataset(run_date, run_hour):
     return ds
 
 st.sidebar.title("⚙️ Pengaturan")
-
-# Input pengguna
 today = datetime.utcnow()
 run_date = st.sidebar.date_input("Tanggal Run GFS (UTC)", today.date())
 run_hour = st.sidebar.selectbox("Jam Run GFS (UTC)", ["00", "06", "12", "18"])
@@ -59,7 +54,7 @@ if st.sidebar.button("🔎 Tampilkan Visualisasi"):
     elif "ugrd10m" in parameter:
         u = ds["ugrd10m"][forecast_hour, :, :]
         v = ds["vgrd10m"][forecast_hour, :, :]
-        speed = (u**2 + v**2)**0.5 * 1.94384  # konversi ke knot
+        speed = (u**2 + v**2)**0.5 * 1.94384
         var = speed
         label = "Kecepatan Angin (knot)"
         cmap = plt.cm.get_cmap("RdYlGn_r", 10)
@@ -73,17 +68,16 @@ if st.sidebar.button("🔎 Tampilkan Visualisasi"):
         st.warning("Parameter tidak dikenali.")
         st.stop()
 
-    # Fokus area Bandara Soetta (Cengkareng)
-    var = var.sel(lat=slice(-7, -5), lon=slice(105, 108))
-
+    # Area DKI Jakarta (lebih luas dari Cengkareng)
+    var = var.sel(lat=slice(-6.4, -5.9), lon=slice(106.6, 107.05))
     if is_vector:
-        u = u.sel(lat=slice(-7, -5), lon=slice(105, 108))
-        v = v.sel(lat=slice(-7, -5), lon=slice(105, 108))
+        u = u.sel(lat=slice(-6.4, -5.9), lon=slice(106.6, 107.05))
+        v = v.sel(lat=slice(-6.4, -5.9), lon=slice(106.6, 107.05))
 
-    # Buat plot
+    # Plot
     fig = plt.figure(figsize=(8, 6))
     ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.set_extent([105, 108, -7, -5], crs=ccrs.PlateCarree())
+    ax.set_extent([106.6, 107.05, -6.4, -5.9], crs=ccrs.PlateCarree())
 
     valid_time = ds.time[forecast_hour].values
     valid_dt = pd.to_datetime(str(valid_time))
@@ -112,10 +106,20 @@ if st.sidebar.button("🔎 Tampilkan Visualisasi"):
     ax.add_feature(cfeature.BORDERS, linestyle=':')
     ax.add_feature(cfeature.LAND, facecolor='lightgray')
 
-    # Tambahkan titik lokasi dan nama kota
-    lon_kota, lat_kota = 106.655, -6.125
-    ax.plot(lon_kota, lat_kota, marker='o', color='red', markersize=6, transform=ccrs.PlateCarree())
-    ax.text(lon_kota + 0.1, lat_kota + 0.1, "Cengkareng (Soetta)", fontsize=9, fontweight='bold', color='black',
-            transform=ccrs.PlateCarree(), bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.2'))
+    # Titik lokasi utama di DKI Jakarta
+    lokasi_jakarta = {
+        "Jakarta Pusat": (106.8272, -6.1806),
+        "Jakarta Barat": (106.7564, -6.1681),
+        "Jakarta Timur": (106.8855, -6.2251),
+        "Jakarta Utara": (106.8451, -6.1214),
+        "Jakarta Selatan": (106.8140, -6.2666),
+        "Bandara Soetta": (106.655, -6.125),
+    }
+
+    for nama, (lon, lat) in lokasi_jakarta.items():
+        ax.plot(lon, lat, marker='o', color='red', markersize=5, transform=ccrs.PlateCarree())
+        ax.text(lon + 0.015, lat + 0.015, nama, fontsize=8, fontweight='bold', color='black',
+                transform=ccrs.PlateCarree(),
+                bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.2'))
 
     st.pyplot(fig)
