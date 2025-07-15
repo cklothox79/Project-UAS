@@ -12,15 +12,14 @@ st.set_page_config(page_title="Prakiraan Cuaca Wilayah Sulawesi Bagian Utara", l
 st.title("📡 Global Forecast System Viewer (Realtime via NOMADS)")
 st.markdown("""
 <div style='text-align: center; font-style: italic;'>
-    <h4>oleh: Riri Ardhya Febriani</h4>
-    <p>NPT: 14.24.0009 | Kelas: Meteorologi 8TB</p>
+    <h4>oleh: Sazali Udjir</h4>
+    <p>Kelas: Meteorologi 8TB</p>
 </div>
 """, unsafe_allow_html=True)
 st.header("Web Hasil Pembelajaran Pengelolaan Informasi Meteorologi")
 
 @st.cache_data
 def load_dataset(run_date, run_hour):
-    # Gunakan port 443 sebagai gantinya — port 9090 sudah diblok oleh NOAA :contentReference[oaicite:1]{index=1}
     base_url = (
         f"https://nomads.ncep.noaa.gov/dods/gfs_0p25_1hr/"
         f"gfs{run_date}/gfs_0p25_1hr_{run_hour}z"
@@ -73,16 +72,18 @@ if st.sidebar.button("🔎 Tampilkan Visualisasi"):
         st.warning("Parameter tidak dikenali.")
         st.stop()
 
-    # Subset Sulawesi Utara
-    var = var.sel(lat=slice(-2, 4), lon=slice(118, 126))
+    # Subset wilayah 2° LU – 5° LS dan 122° BT – 133° BT
+    lat_min, lat_max = -5, 2
+    lon_min, lon_max = 122, 133
+    var = var.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
     if is_vector:
-        u = u.sel(lat=slice(-2, 4), lon=slice(118, 126))
-        v = v.sel(lat=slice(-2, 4), lon=slice(118, 126))
+        u = u.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
+        v = v.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
 
     # Visualisasi
     fig = plt.figure(figsize=(10, 6))
     ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.set_extent([118, 126, -2, 4], ccrs.PlateCarree())
+    ax.set_extent([lon_min, lon_max, lat_min, lat_max], ccrs.PlateCarree())
 
     valid_dt = pd.to_datetime(ds.time[forecast_hour].values)
     valid_str = valid_dt.strftime("%HUTC %a %d %b %Y")
