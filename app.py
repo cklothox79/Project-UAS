@@ -106,13 +106,14 @@ if st.sidebar.button("🔎 Tampilkan Visualisasi"):
                       transform=ccrs.PlateCarree(), scale=700,
                       width=0.002, color="black")
 
-    # Menandai kota
-    kota = {"Gorontalo": (0.537, 123.056),
-            "Manado": (1.4748, 124.8421),
-            "Palu": (-0.8917, 119.8707)}
+    # Menandai kota (Ternate dan Ambon saja)
+    kota = {
+        "Ternate": (0.7893, 127.3877),
+        "Ambon": (-3.695, 128.181)
+    }
     for nama, (lat, lon) in kota.items():
         ax.plot(lon, lat, "ro", markersize=5, transform=ccrs.PlateCarree())
-        ax.text(lon+0.1, lat+0.1, nama,
+        ax.text(lon + 0.1, lat + 0.1, nama,
                 transform=ccrs.PlateCarree(),
                 fontsize=8, fontweight="bold", color="red")
 
