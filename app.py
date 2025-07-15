@@ -5,13 +5,18 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import pandas as pd
 from datetime import datetime
-import io
 
-st.set_page_config(page_title="Prakiraan Cuaca Kalimantan", layout="wide")
+st.set_page_config(page_title="Prakiraan Cuaca Wilayah Sulawesi Bagian Utara", layout="wide")
 
-st.title("🌧️ GFS Viewer Wilayah Kalimantan (Realtime via NOMADS)")
+# Judul dan identitas
+st.title("📡 Global Forecast System Viewer (Realtime via NOMADS)")
+st.markdown("""
+<div style='text-align: center; font-style: italic;'>
+    <h4>oleh: Riri Ardhya Febriani</h4>
+    <p>NPT: 14.24.0009 | Kelas: Meteorologi 8TB</p>
+</div>
+""", unsafe_allow_html=True)
 st.header("Web Hasil Pembelajaran Pengelolaan Informasi Meteorologi")
-st.markdown("**Atia Carnesia**  \n*UAS PIM M8TB 2025*")
 
 @st.cache_data
 def load_dataset(run_date, run_hour):
@@ -19,9 +24,8 @@ def load_dataset(run_date, run_hour):
     ds = xr.open_dataset(base_url)
     return ds
 
+# Sidebar input
 st.sidebar.title("⚙️ Pengaturan")
-
-# Input pengguna
 today = datetime.utcnow()
 run_date = st.sidebar.date_input("Tanggal Run GFS (UTC)", today.date())
 run_hour = st.sidebar.selectbox("Jam Run GFS (UTC)", ["00", "06", "12", "18"])
@@ -36,9 +40,6 @@ parameter = st.sidebar.selectbox("Parameter", [
 if st.sidebar.button("🔎 Tampilkan Visualisasi"):
     try:
         ds = load_dataset(run_date.strftime("%Y%m%d"), run_hour)
-        if forecast_hour >= len(ds.time):
-            st.error(f"Data untuk jam ke-{forecast_hour} belum tersedia.")
-            st.stop()
         st.success("Dataset berhasil dimuat.")
     except Exception as e:
         st.error(f"Gagal memuat data: {e}")
@@ -47,17 +48,14 @@ if st.sidebar.button("🔎 Tampilkan Visualisasi"):
     is_contour = False
     is_vector = False
 
-    # Parameter
     if "pratesfc" in parameter:
         var = ds["pratesfc"][forecast_hour, :, :] * 3600
         label = "Curah Hujan (mm/jam)"
         cmap = "Blues"
-        vmin, vmax = 0, 10
     elif "tmp2m" in parameter:
         var = ds["tmp2m"][forecast_hour, :, :] - 273.15
         label = "Suhu (°C)"
         cmap = "coolwarm"
-        vmin, vmax = 20, 35
     elif "ugrd10m" in parameter:
         u = ds["ugrd10m"][forecast_hour, :, :]
         v = ds["vgrd10m"][forecast_hour, :, :]
@@ -65,73 +63,62 @@ if st.sidebar.button("🔎 Tampilkan Visualisasi"):
         var = speed
         label = "Kecepatan Angin (knot)"
         cmap = plt.cm.get_cmap("RdYlGn_r", 10)
-        vmin, vmax = 0, 20
         is_vector = True
     elif "prmsl" in parameter:
         var = ds["prmslmsl"][forecast_hour, :, :] / 100
         label = "Tekanan Permukaan Laut (hPa)"
         cmap = "cool"
-        vmin, vmax = 1000, 1020
         is_contour = True
     else:
         st.warning("Parameter tidak dikenali.")
         st.stop()
 
-    # Wilayah Kalimantan diperluas
-    lat_min, lat_max = -5, 5
-    lon_min, lon_max = 108, 120
-    var = var.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
-
+    # Area subset Sulawesi Utara
+    var = var.sel(lat=slice(-2, 4), lon=slice(118, 126))
     if is_vector:
-        u = u.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
-        v = v.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
+        u = u.sel(lat=slice(-2, 4), lon=slice(118, 126))
+        v = v.sel(lat=slice(-2, 4), lon=slice(118, 126))
 
-    # Plot
-    fig = plt.figure(figsize=(10, 7))
+    # Visualisasi dengan Cartopy
+    fig = plt.figure(figsize=(10, 6))
     ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
+    ax.set_extent([118, 126, -2, 4], crs=ccrs.PlateCarree())
 
+    # Format waktu
     valid_time = ds.time[forecast_hour].values
     valid_dt = pd.to_datetime(str(valid_time))
     valid_str = valid_dt.strftime("%HUTC %a %d %b %Y")
     tstr = f"t+{forecast_hour:03d}"
-
-    ax.set_title(f"{label} • Valid: {valid_str} • GFS {tstr}",
-                 fontsize=11, fontweight="bold", loc="center", pad=15)
+    ax.set_title(f"{label} - Valid {valid_str}", loc="left", fontsize=10, fontweight="bold")
+    ax.set_title(f"GFS {tstr}", loc="right", fontsize=10, fontweight="bold")
 
     if is_contour:
-        cs = ax.contour(var.lon, var.lat, var.values, levels=15, colors='black', linewidths=0.8, transform=ccrs.PlateCarree())
+        cs = ax.contour(var.lon, var.lat, var.values, levels=15, colors='black',
+                        linewidths=0.8, transform=ccrs.PlateCarree())
         ax.clabel(cs, fmt="%d", colors='black', fontsize=8)
     else:
-        im = ax.pcolormesh(var.lon, var.lat, var.values,
-                           cmap=cmap, vmin=vmin, vmax=vmax,
-                           transform=ccrs.PlateCarree())
+        im = ax.pcolormesh(var.lon, var.lat, var.values, cmap=cmap, vmin=0, vmax=50, transform=ccrs.PlateCarree())
         cbar = plt.colorbar(im, ax=ax, orientation='vertical', pad=0.02)
         cbar.set_label(label)
         if is_vector:
-            ax.quiver(var.lon[::1], var.lat[::1],
-                      u.values[::1, ::1], v.values[::1, ::1],
-                      transform=ccrs.PlateCarree(), scale=500, width=0.002, color='black')
+            ax.quiver(var.lon[::5], var.lat[::5], u.values[::5, ::5], v.values[::5, ::5],
+                      transform=ccrs.PlateCarree(), scale=700, width=0.002, color='black')
 
+    # Lokasi kota
+    kota = {
+        "Gorontalo": (0.537, 123.056),
+        "Manado": (1.4748, 124.8421),
+        "Palu": (-0.8917, 119.8707)
+    }
+
+    for nama, (lat, lon) in kota.items():
+        ax.plot(lon, lat, marker='o', color='red', markersize=5, transform=ccrs.PlateCarree())
+        ax.text(lon + 0.1, lat + 0.1, nama, transform=ccrs.PlateCarree(),
+                fontsize=8, fontweight='bold', color='red')
+
+    # Fitur geospasial tambahan
     ax.coastlines(resolution='10m', linewidth=0.8)
     ax.add_feature(cfeature.BORDERS, linestyle=':')
     ax.add_feature(cfeature.LAND, facecolor='lightgray')
 
-    # Titik Buntok
-    lon_buntok, lat_buntok = 114.845, -1.735
-    ax.plot(lon_buntok, lat_buntok, marker='o', color='red', markersize=6, transform=ccrs.PlateCarree())
-    ax.text(lon_buntok + 0.2, lat_buntok + 0.1, "Sanggu_BaritoSelatan", fontsize=9, fontweight='bold', color='black',
-            transform=ccrs.PlateCarree(), bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.2'))
-
-    # Titik Observasi Tambahan
-    lon_obs, lat_obs = 114.907933, -1.682540
-    ax.plot(lon_obs, lat_obs, marker='^', color='blue', markersize=6, transform=ccrs.PlateCarree())
-    ax.text(lon_obs + 0.2, lat_obs - 0.2, "Obs Point", fontsize=9, fontweight='bold', color='blue',
-            transform=ccrs.PlateCarree(), bbox=dict(facecolor='white', edgecolor='blue', boxstyle='round,pad=0.2'))
-
     st.pyplot(fig)
-
-    # Download tombol
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", bbox_inches="tight")
-    st.download_button("📥 Download Gambar", buf.getvalue(), file_name="gfs_kalimantan.png", mime="image/png")
