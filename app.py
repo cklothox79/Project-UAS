@@ -13,7 +13,7 @@ st.set_page_config(page_title="Cuaca Perjalanan", layout="wide")
 # ----- Header -----
 st.markdown("<h1 style='font-size:36px;'>🌤️ Cuaca Perjalanan</h1>", unsafe_allow_html=True)
 st.markdown("<p style='font-size:18px; color:gray;'><em>Editor: Ferri Kusuma (Stamet_Juanda/NIP.197912222000031001)</em></p>", unsafe_allow_html=True)
-st.markdown("<p style='font-size:17px;'>Lihat prakiraan suhu, hujan, awan, kelembapan, dan angin setiap jam — sekarang dengan generator TAF sederhana (edukatif).</p>", unsafe_allow_html=True)
+st.markdown("<p style='font-size:17px;'>Lihat prakiraan suhu, hujan, awan, kelembapan, dan angin setiap jam — Dilengkapi dengan generator TAF sederhana (edukatif/informal).</p>", unsafe_allow_html=True)
 
 # ----- Sidebar (input) -----
 st.sidebar.header("Input Lokasi & Tanggal")
@@ -124,7 +124,7 @@ def precip_to_visibility(p_mm):
 def ms_to_kt(ms):
     return ms * 1.94384
 
-# ----- Generate simplified TAF ----- (educational)
+# ----- Generate simplified TAF ----- (educational/informal)
 def generate_taf_simplified(lat, lon, tanggal, ident="XXXX"):
     data = get_hourly_weather(lat, lon, tanggal)
     if not data or "hourly" not in data:
@@ -348,3 +348,4 @@ if lat and lon and tanggal:
 
     else:
         st.error("❌ Data cuaca tidak tersedia.")
+
