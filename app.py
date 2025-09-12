@@ -13,7 +13,7 @@ st.set_page_config(page_title="Cuaca Perjalanan", layout="wide")
 # ----- Header -----
 st.markdown("<h1 style='font-size:36px;'>🌤️ Cuaca Perjalanan</h1>", unsafe_allow_html=True)
 st.markdown("<p style='font-size:18px; color:gray;'><em>Editor: Ferri Kusuma (Stamet_Juanda/NIP.197912222000031001)</em></p>", unsafe_allow_html=True)
-st.markdown("<p style='font-size:17px;'>Lihat prakiraan suhu, hujan, awan, kelembapan, dan angin setiap jam — sekarang dengan generator TAF sederhana (edukatif).</p>", unsafe_allow_html=True)
+st.markdown("<p style='font-size:17px;'>Lihat prakiraan suhu, hujan, awan, kelembapan, dan angin setiap jam — disertai dengan generator TAF sederhana (edukatif/informal).</p>", unsafe_allow_html=True)
 
 # ----- Sidebar (input) -----
 st.sidebar.header("Input Lokasi & Tanggal")
@@ -348,3 +348,4 @@ if lat and lon and tanggal:
 
     else:
         st.error("❌ Data cuaca tidak tersedia.")
+
