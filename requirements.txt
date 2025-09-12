@@ -1,6 +1,6 @@
 streamlit
-xarray
-netCDF4
-numpy
-matplotlib
-cartopy
+streamlit-folium
+plotly
+folium
+requests
+pandas
