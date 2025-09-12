@@ -22,7 +22,7 @@ tanggal = st.sidebar.date_input("📅 Tanggal perjalanan:", value=date.today(), 
 
 st.sidebar.markdown("---")
 st.sidebar.header("Opsi Tambahan")
-use_taf = st.sidebar.checkbox("🔁 Generate simplified TAF (EDUCATIONAL)", value=False)
+use_taf = st.sidebar.checkbox("🔁 Generate simplified TAF (EDUCATIONAL/INFORMAL)", value=False)
 if use_taf:
     st.sidebar.caption("Hasil hanya ilustrasi — **bukan** TAF resmi untuk operasi penerbangan.")
 st.sidebar.markdown("---")
@@ -348,4 +348,5 @@ if lat and lon and tanggal:
 
     else:
         st.error("❌ Data cuaca tidak tersedia.")
+
 
