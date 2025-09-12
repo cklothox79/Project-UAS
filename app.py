@@ -1,203 +1,120 @@
-# Cuaca Perjalanan - Editor: Ferri Kusuma (M8TB_14.22.0003)
-
 import streamlit as st
-import requests
-import pandas as pd
-from datetime import date
-from streamlit_folium import st_folium
 import folium
-import plotly.graph_objects as go
+from streamlit_folium import st_folium
 
-st.set_page_config(page_title="Cuaca Perjalanan", layout="wide")
+# ========================
+# KONFIGURASI APLIKASI
+# ========================
+st.set_page_config(
+    page_title="Sistem Informasi Dini BMKG",
+    page_icon="🌦️",
+    layout="wide"
+)
 
 # ========================
 # HEADER
 # ========================
-st.markdown("<h1 style='font-size:36px;'>🌤️ Cuaca Perjalanan</h1>", unsafe_allow_html=True)
-st.markdown("<p style='font-size:18px; color:gray;'><em>Editor: Ferri Kusuma (Stamet_Juanda/NIP.197912222000031001)</em></p>", unsafe_allow_html=True)
-st.markdown("<p style='font-size:17px;'>Lihat prakiraan suhu, hujan, awan, kelembapan, dan angin setiap jam untuk lokasi dan tanggal yang kamu pilih.</p>", unsafe_allow_html=True)
+st.markdown(
+    """
+    <h1 style='text-align: center; color: #2C3E50;'>🌦️ Sistem Informasi Dini BMKG</h1>
+    <p style='text-align: center; font-size:18px;'>
+        Aplikasi ini dibuat untuk memberikan informasi cepat dan interaktif terkait cuaca ekstrem 
+        dan bencana hidrometeorologis di Indonesia.
+    </p>
+    """,
+    unsafe_allow_html=True
+)
 
 # ========================
-# SIDEBAR INPUT
+# SIDEBAR
 # ========================
-st.sidebar.header("⚙️ Pengaturan")
-kota = st.sidebar.text_input("📝 Masukkan nama kota (opsional):")
-tanggal = st.sidebar.date_input("📅 Pilih tanggal perjalanan:", value=date.today(), min_value=date.today())
+with st.sidebar:
+    st.header("🔎 Menu Navigasi")
+    menu = st.radio(
+        "Pilih halaman:",
+        ["Beranda", "Peta Interaktif", "Data & Statistik", "Tentang Aplikasi"]
+    )
 
-# Fungsi koordinat: API + fallback lokal
-@st.cache_data(show_spinner=False)
-def get_coordinates(nama_kota):
-    try:
-        url = f"https://nominatim.openstreetmap.org/search?q={nama_kota}&format=json&limit=1"
-        headers = {"User-Agent": "cuaca-perjalanan-app"}
-        r = requests.get(url, headers=headers, timeout=10)
-        r.raise_for_status()
-        hasil = r.json()
-        if hasil:
-            return float(hasil[0]["lat"]), float(hasil[0]["lon"])
-        else:
-            st.warning("⚠️ Kota tidak ditemukan. Coba masukkan nama kota yang lebih lengkap.")
-            return None, None
-    except:
-        fallback_kota = {
-            "mojokerto": (-7.4722, 112.4333),
-            "surabaya": (-7.2575, 112.7521),
-            "sidoarjo": (-7.45, 112.7167),
-            "malang": (-7.9839, 112.6214),
-            "jakarta": (-6.2, 106.8),
-            "bandung": (-6.9147, 107.6098),
-            "semarang": (-6.9667, 110.4167),
-        }
-        nama = nama_kota.strip().lower()
-        if nama in fallback_kota:
-            st.info("🔁 Menggunakan koordinat lokal karena koneksi API gagal.")
-            return fallback_kota[nama]
-        else:
-            st.error("❌ Gagal mengambil koordinat dari internet dan tidak ditemukan dalam data lokal.")
-            return None, None
-
-lat = lon = None
+# ========================
+# BERANDA
+# ========================
+if menu == "Beranda":
+    st.subheader("📌 Selamat Datang")
+    st.write(
+        """
+        Sistem ini merupakan bagian dari penelitian kelompok IV pada mata kuliah **Kapita Selekta Meteorologi**.  
+        Fokus penelitian adalah **Respon Masyarakat terhadap Sistem Informasi Dini BMKG dalam Menghadapi Bencana Hidrometeorologis**.
+        """
+    )
+    st.info("Gunakan menu di sebelah kiri untuk menjelajah fitur aplikasi.")
 
 # ========================
 # PETA INTERAKTIF
 # ========================
-st.markdown("<h3 style='font-size:20px; margin-top:20px;'>🗺️ Pilih Lokasi di Peta</h3>", unsafe_allow_html=True)
+elif menu == "Peta Interaktif":
+    st.markdown("<h3 style='font-size:20px; margin-top:20px;'>🗺️ Pilih Lokasi di Peta</h3>", unsafe_allow_html=True)
 
-default_location = [-2.5, 117.0]
-m = folium.Map(location=default_location, zoom_start=5, tiles="OpenStreetMap")
+    default_location = [-2.5, 117.0]  # Pusat Indonesia
+    m = folium.Map(location=default_location, zoom_start=5, tiles="OpenStreetMap")
 
-# Tambahkan pilihan layer
-folium.TileLayer("Stamen Terrain").add_to(m)
-folium.TileLayer("Stamen Toner").add_to(m)
-folium.TileLayer("CartoDB positron").add_to(m)
-folium.LayerControl().add_to(m)
-
-if kota:
-    lat, lon = get_coordinates(kota)
-    if lat is None or lon is None:
-        st.stop()
-    folium.Marker(
-        [lat, lon],
-        tooltip=f"📍 {kota.title()}",
-        icon=folium.Icon(color="blue", icon="cloud")
+    # Tambahkan pilihan layer dengan attribution
+    folium.TileLayer(
+        "Stamen Terrain",
+        name="Terrain",
+        attr="Map tiles by Stamen Design, CC BY 3.0 — Map data © OpenStreetMap contributors"
     ).add_to(m)
-    m.location = [lat, lon]
-    m.zoom_start = 9
 
-m.add_child(folium.LatLngPopup())
-map_data = st_folium(m, height=320, width=700)  # lebih kecil & proporsional
+    folium.TileLayer(
+        "Stamen Toner",
+        name="Toner",
+        attr="Map tiles by Stamen Design, CC BY 3.0 — Map data © OpenStreetMap contributors"
+    ).add_to(m)
 
-if map_data and map_data["last_clicked"]:
-    lat = map_data["last_clicked"]["lat"]
-    lon = map_data["last_clicked"]["lng"]
-    st.success(f"📍 Lokasi dari peta: {lat:.4f}, {lon:.4f}")
+    folium.TileLayer(
+        "CartoDB positron",
+        name="Carto",
+        attr="Map tiles by Carto, CC BY 3.0 — Map data © OpenStreetMap contributors"
+    ).add_to(m)
+
+    # Layer control
+    folium.LayerControl().add_to(m)
+
+    # Tampilkan peta di Streamlit
+    map_data = st_folium(m, width=800, height=500)
+
+    # Ambil lokasi klik
+    if map_data and map_data.get("last_clicked"):
+        st.success(f"Lokasi dipilih: {map_data['last_clicked']}")
 
 # ========================
-# AMBIL DATA CUACA
+# DATA & STATISTIK
 # ========================
-def get_hourly_weather(lat, lon, tanggal):
-    tgl = tanggal.strftime("%Y-%m-%d")
-    url = (
-        f"https://api.open-meteo.com/v1/forecast?"
-        f"latitude={lat}&longitude={lon}"
-        f"&hourly=temperature_2m,precipitation,cloudcover,weathercode,"
-        f"relativehumidity_2m,windspeed_10m,winddirection_10m"
-        f"&timezone=auto&start_date={tgl}&end_date={tgl}"
+elif menu == "Data & Statistik":
+    st.subheader("📊 Data & Statistik Responden")
+    st.write(
+        """
+        Bagian ini menampilkan data kuesioner masyarakat terkait sistem informasi dini BMKG.  
+        Analisis akan mencakup faktor usia, pekerjaan, dan respon terhadap informasi cuaca ekstrem.
+        """
     )
-    r = requests.get(url)
-    return r.json() if r.status_code == 200 else None
+    st.warning("📌 Data kuesioner akan diintegrasikan di tahap berikutnya.")
 
 # ========================
-# TAMPILKAN DATA
+# TENTANG APLIKASI
 # ========================
-if lat and lon and tanggal:
-    data = get_hourly_weather(lat, lon, tanggal)
-    if data and "hourly" in data:
-        d = data["hourly"]
-        waktu = d["time"]
-        jam_labels = [w[-5:] for w in waktu]
-        suhu = d["temperature_2m"]
-        hujan = d["precipitation"]
-        awan = d["cloudcover"]
-        kode = d["weathercode"]
-        rh = d["relativehumidity_2m"]
-        angin_speed = d["windspeed_10m"]
-        angin_dir = d["winddirection_10m"]
+elif menu == "Tentang Aplikasi":
+    st.subheader("ℹ️ Tentang Aplikasi")
+    st.write(
+        """
+        Aplikasi ini dikembangkan oleh **Kelompok IV (Ferri Kusuma, Hani Gunawan, Ibnu Khaldun)**  
+        dalam rangka tugas akhir mata kuliah Kapita Selekta Meteorologi di bawah bimbingan  
+        **Dr. Giarno**.  
 
-        df = pd.DataFrame({
-            "Waktu": waktu,
-            "Suhu (°C)": suhu,
-            "Hujan (mm)": hujan,
-            "Awan (%)": awan,
-            "RH (%)": rh,
-            "Kecepatan Angin (m/s)": angin_speed,
-            "Arah Angin (°)": angin_dir,
-            "Kode Cuaca": kode
-        })
+        **Tujuan utama:**  
+        - Memberikan informasi dini terkait bencana hidrometeorologis.  
+        - Mempermudah masyarakat dalam memahami sistem informasi BMKG.  
+        - Menyediakan sarana analisis respon masyarakat.  
+        """
+    )
+    st.success("Versi awal aplikasi sudah siap digunakan 🚀")
 
-        # ========================
-        # PERINGATAN CUACA
-        # ========================
-        ekstrem = [w.replace("T", " ") for i, w in enumerate(waktu) if kode[i] >= 80]
-        st.markdown("<h3 style='font-size:20px;'>⚠️ Peringatan Cuaca Ekstrem</h3>", unsafe_allow_html=True)
-        if ekstrem:
-            daftar = "\n".join(f"• {e}" for e in ekstrem)
-            st.warning(f"Cuaca ekstrem diperkirakan pada:\n\n{daftar}")
-        else:
-            st.success("✅ Tidak ada cuaca ekstrem yang terdeteksi.")
-
-        # ========================
-        # GRAFIK CUACA
-        # ========================
-        st.markdown("<h3 style='font-size:20px;'>📈 Grafik Cuaca per Jam</h3>", unsafe_allow_html=True)
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=jam_labels, y=suhu, name="Suhu (°C)", line=dict(color="red")))
-        fig.add_trace(go.Bar(x=jam_labels, y=hujan, name="Hujan (mm)", yaxis="y2", marker_color="#0044cc", opacity=0.7))
-        fig.add_trace(go.Bar(x=jam_labels, y=awan, name="Awan (%)", yaxis="y2", marker_color="gray", opacity=0.4))
-        fig.add_trace(go.Scatter(x=jam_labels, y=rh, name="RH (%)", yaxis="y2", line=dict(color="green", dash="dot")))
-
-        fig.update_layout(
-            xaxis=dict(title="Jam"),
-            yaxis=dict(title="Suhu (°C)"),
-            yaxis2=dict(title="RH / Hujan / Awan", overlaying="y", side="right"),
-            height=450
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-        # ========================
-        # WINDROSE
-        # ========================
-        st.markdown("<h3 style='font-size:20px; margin-top:30px;'>🧭 Arah & Kecepatan Angin</h3>", unsafe_allow_html=True)
-        warna = ['#1f77b4', '#ff7f0e', '#2ca02c', '#9467bd',
-                 '#17becf', '#e377c2', '#bcbd22', '#8c564b'] * (len(angin_speed) // 8 + 1)
-
-        fig_angin = go.Figure()
-        fig_angin.add_trace(go.Barpolar(
-            r=angin_speed,
-            theta=angin_dir,
-            name="Angin per jam",
-            marker_color=warna[:len(angin_speed)],
-            opacity=0.85
-        ))
-
-        fig_angin.update_layout(
-            polar=dict(
-                angularaxis=dict(direction="clockwise", rotation=90, tickfont_size=11),
-                radialaxis=dict(tickfont_size=11, angle=45, tickangle=45, gridcolor="lightgray")
-            ),
-            height=450,
-            margin=dict(t=20, b=40, l=20, r=20),
-            showlegend=False
-        )
-        st.plotly_chart(fig_angin, use_container_width=True)
-
-        # ========================
-        # TABEL DATA
-        # ========================
-        st.markdown("<h3 style='font-size:20px;'>📊 Tabel Data Cuaca</h3>", unsafe_allow_html=True)
-        st.dataframe(df, use_container_width=True)
-        csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button("📥 Unduh Data (CSV)", data=csv, file_name="cuaca_per_jam.csv", mime="text/csv")
-
-    else:
-        st.error("❌ Data cuaca tidak tersedia.")
