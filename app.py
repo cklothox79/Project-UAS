@@ -7,6 +7,7 @@ from streamlit_folium import st_folium
 import folium
 import plotly.graph_objects as go
 import math
+import calendar # Gemini-Added
 
 st.set_page_config(page_title="Cuaca Perjalanan", layout="wide")
 
@@ -33,6 +34,10 @@ st.sidebar.header("Opsi Tambahan")
 use_taf = st.sidebar.checkbox("🔁 Generate simplified TAF (EDUCATIONAL/INFORMAL)", value=False)
 if use_taf:
     st.sidebar.caption("Hasil hanya ilustrasi — **bukan** TAF resmi untuk operasi penerbangan.")
+
+# ----- Gemini-Added: Sidebar untuk data historis -----
+show_historical = st.sidebar.checkbox("📊 Tampilkan Perbandingan Rata-rata Bulanan", value=False)
+
 st.sidebar.markdown("---")
 st.sidebar.caption("Aplikasi: prakicu.streamlit.app")
 
@@ -99,6 +104,29 @@ def get_hourly_weather(lat, lon, tanggal):
         f"&hourly=temperature_2m,precipitation,cloudcover,weathercode,"
         f"relativehumidity_2m,windspeed_10m,winddirection_10m"
         f"&timezone=UTC&start_date={tgl}&end_date={tgl}"
+    )
+    r = requests.get(url, timeout=15)
+    return r.json() if r.status_code == 200 else None
+
+# ----- Gemini-Added: Fungsi untuk mengambil rata-rata bulanan historis (Open-Meteo) -----
+@st.cache_data(show_spinner=False)
+def get_monthly_average_weather(lat, lon, tanggal):
+    # Dapatkan tahun dan bulan dari tanggal yang dipilih
+    tahun = tanggal.year
+    bulan = tanggal.month
+    
+    # Dapatkan jumlah hari dalam bulan
+    last_day = calendar.monthrange(tahun, bulan)[1]
+    
+    start_date = date(tahun, bulan, 1).strftime("%Y-%m-%d")
+    end_date = date(tahun, bulan, last_day).strftime("%Y-%m-%d")
+
+    url = (
+        f"https://archive-api.open-meteo.com/v1/archive?"
+        f"latitude={lat}&longitude={lon}"
+        f"&start_date={start_date}&end_date={end_date}"
+        f"&daily=temperature_2m_mean,precipitation_sum,windspeed_10m_mean"
+        f"&timezone=UTC"
     )
     r = requests.get(url, timeout=15)
     return r.json() if r.status_code == 200 else None
@@ -336,6 +364,29 @@ if lat and lon and tanggal:
         ))
         fig_angin.update_layout(polar=dict(angularaxis=dict(direction="clockwise", rotation=90)), height=520)
         st.plotly_chart(fig_angin, use_container_width=True)
+
+        # Gemini-Added: Tampilkan perbandingan historis jika dicentang
+        if show_historical:
+            st.markdown("<h3 style='font-size:20px;'>📉 Perbandingan Data dengan Rata-rata Bulanan</h3>", unsafe_allow_html=True)
+            historical_data = get_monthly_average_weather(lat, lon, tanggal)
+            
+            if historical_data and "daily" in historical_data:
+                daily_data = historical_data["daily"]
+                avg_temp = sum(daily_data["temperature_2m_mean"]) / len(daily_data["temperature_2m_mean"])
+                avg_precip = sum(daily_data["precipitation_sum"]) / len(daily_data["precipitation_sum"])
+                avg_wind = sum(daily_data["windspeed_10m_mean"]) / len(daily_data["windspeed_10m_mean"])
+                
+                # Buat DataFrame untuk perbandingan
+                comparison_df = pd.DataFrame({
+                    "Parameter": ["Suhu (°C)", "Hujan (mm)", "Angin (m/s)"],
+                    "Rata-rata Bulanan": [avg_temp, avg_precip, avg_wind],
+                    "Rata-rata Harian": [sum(suhu)/len(suhu), sum(hujan), sum(angin_speed)/len(angin_speed)]
+                })
+                
+                st.dataframe(comparison_df.set_index("Parameter"), use_container_width=True)
+
+            else:
+                st.warning("⚠️ Data historis tidak tersedia untuk bulan ini.")
 
         # Tabel & unduh
         st.markdown("<h3 style='font-size:20px;'>📊 Tabel Data Cuaca</h3>", unsafe_allow_html=True)
