@@ -10,6 +10,10 @@ import math
 
 st.set_page_config(page_title="Cuaca Perjalanan", layout="wide")
 
+# ----- Gemini-Added: Inisialisasi session state untuk menyimpan kota terakhir -----
+if 'last_kota' not in st.session_state:
+    st.session_state.last_kota = ""
+
 # ----- Header -----
 st.markdown("<h1 style='font-size:36px;'>🌤️ Cuaca Perjalanan</h1>", unsafe_allow_html=True)
 st.markdown("<p style='font-size:18px; color:gray;'><em>Editor: Ferri Kusuma (Stamet_Juanda/NIP.197912222000031001)</em></p>", unsafe_allow_html=True)
@@ -17,7 +21,11 @@ st.markdown("<p style='font-size:17px;'>Lihat prakiraan suhu, hujan, awan, kelem
 
 # ----- Sidebar (input) -----
 st.sidebar.header("Input Lokasi & Tanggal")
-kota = st.sidebar.text_input("📝 Nama kota (opsional):")
+# ----- Gemini-Modified: Gunakan nilai dari session state -----
+kota = st.sidebar.text_input("📝 Nama kota (opsional):", value=st.session_state.last_kota)
+# ----- Gemini-Added: Simpan nilai input ke session state -----
+st.session_state.last_kota = kota
+
 tanggal = st.sidebar.date_input("📅 Tanggal perjalanan:", value=date.today(), min_value=date.today())
 
 st.sidebar.markdown("---")
@@ -348,5 +356,3 @@ if lat and lon and tanggal:
 
     else:
         st.error("❌ Data cuaca tidak tersedia.")
-
-
