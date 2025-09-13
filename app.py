@@ -2,12 +2,12 @@
 import streamlit as st
 import requests
 import pandas as pd
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone # Gemini-Modified
 from streamlit_folium import st_folium
 import folium
 import plotly.graph_objects as go
 import math
-import calendar # Gemini-Added
+import calendar
 
 st.set_page_config(page_title="Cuaca Perjalanan", layout="wide")
 
@@ -35,8 +35,8 @@ use_taf = st.sidebar.checkbox("🔁 Generate simplified TAF (EDUCATIONAL/INFORMA
 if use_taf:
     st.sidebar.caption("Hasil hanya ilustrasi — **bukan** TAF resmi untuk operasi penerbangan.")
 
-# ----- Gemini-Added: Sidebar untuk data historis -----
-show_historical = st.sidebar.checkbox("📊 Tampilkan Perbandingan Rata-rata Bulanan", value=False)
+# ----- Gemini-Modified: Ganti dengan perbandingan prakiraan 7 hari -----
+show_forecast_comparison = st.sidebar.checkbox("📊 Tampilkan Perbandingan Prakiraan 7 Hari", value=False)
 
 st.sidebar.markdown("---")
 st.sidebar.caption("Aplikasi: prakicu.streamlit.app")
@@ -108,25 +108,16 @@ def get_hourly_weather(lat, lon, tanggal):
     r = requests.get(url, timeout=15)
     return r.json() if r.status_code == 200 else None
 
-# ----- Gemini-Added: Fungsi untuk mengambil rata-rata bulanan historis (Open-Meteo) -----
+# ----- Gemini-Added: Fungsi untuk mengambil prakiraan 7 hari -----
 @st.cache_data(show_spinner=False)
-def get_monthly_average_weather(lat, lon, tanggal):
-    # Dapatkan tahun dan bulan dari tanggal yang dipilih
-    tahun = tanggal.year
-    bulan = tanggal.month
-    
-    # Dapatkan jumlah hari dalam bulan
-    last_day = calendar.monthrange(tahun, bulan)[1]
-    
-    start_date = date(tahun, bulan, 1).strftime("%Y-%m-%d")
-    end_date = date(tahun, bulan, last_day).strftime("%Y-%m-%d")
-
+def get_weekly_forecast(lat, lon, tanggal):
+    end_date = tanggal + timedelta(days=6) # 7 hari dari tanggal yang dipilih
     url = (
-        f"https://archive-api.open-meteo.com/v1/archive?"
+        f"https://api.open-meteo.com/v1/forecast?"
         f"latitude={lat}&longitude={lon}"
-        f"&start_date={start_date}&end_date={end_date}"
-        f"&daily=temperature_2m_mean,precipitation_sum,windspeed_10m_mean"
+        f"&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max"
         f"&timezone=UTC"
+        f"&start_date={tanggal.strftime('%Y-%m-%d')}&end_date={end_date.strftime('%Y-%m-%d')}"
     )
     r = requests.get(url, timeout=15)
     return r.json() if r.status_code == 200 else None
@@ -365,28 +356,33 @@ if lat and lon and tanggal:
         fig_angin.update_layout(polar=dict(angularaxis=dict(direction="clockwise", rotation=90)), height=520)
         st.plotly_chart(fig_angin, use_container_width=True)
 
-        # Gemini-Added: Tampilkan perbandingan historis jika dicentang
-        if show_historical:
-            st.markdown("<h3 style='font-size:20px;'>📉 Perbandingan Data dengan Rata-rata Bulanan</h3>", unsafe_allow_html=True)
-            historical_data = get_monthly_average_weather(lat, lon, tanggal)
+        # Gemini-Added: Tampilkan perbandingan prakiraan 7 hari jika dicentang
+        if show_forecast_comparison:
+            st.markdown("<h3 style='font-size:20px;'>📉 Perbandingan Prakiraan Harian vs. Rata-rata 7 Hari</h3>", unsafe_allow_html=True)
+            weekly_data = get_weekly_forecast(lat, lon, tanggal)
             
-            if historical_data and "daily" in historical_data:
-                daily_data = historical_data["daily"]
-                avg_temp = sum(daily_data["temperature_2m_mean"]) / len(daily_data["temperature_2m_mean"])
-                avg_precip = sum(daily_data["precipitation_sum"]) / len(daily_data["precipitation_sum"])
-                avg_wind = sum(daily_data["windspeed_10m_mean"]) / len(daily_data["windspeed_10m_mean"])
+            if weekly_data and "daily" in weekly_data:
+                daily_data = weekly_data["daily"]
+                avg_temp_weekly = sum(daily_data["temperature_2m_max"]) / len(daily_data["temperature_2m_max"])
+                avg_precip_weekly = sum(daily_data["precipitation_sum"]) / len(daily_data["precipitation_sum"])
+                avg_wind_weekly = sum(daily_data["windspeed_10m_max"]) / len(daily_data["windspeed_10m_max"])
+                
+                # Hitung rata-rata harian dari data per jam yang sudah ada
+                daily_avg_temp = sum(suhu) / len(suhu)
+                daily_total_precip = sum(hujan)
+                daily_avg_wind = sum(angin_speed) / len(angin_speed)
                 
                 # Buat DataFrame untuk perbandingan
                 comparison_df = pd.DataFrame({
-                    "Parameter": ["Suhu (°C)", "Hujan (mm)", "Angin (m/s)"],
-                    "Rata-rata Bulanan": [avg_temp, avg_precip, avg_wind],
-                    "Rata-rata Harian": [sum(suhu)/len(suhu), sum(hujan), sum(angin_speed)/len(angin_speed)]
+                    "Parameter": ["Suhu Max (°C)", "Total Hujan (mm)", "Angin Max (m/s)"],
+                    "Rata-rata 7 Hari": [avg_temp_weekly, avg_precip_weekly, avg_wind_weekly],
+                    f"Prakiraan {tanggal.strftime('%Y-%m-%d')}": [daily_avg_temp, daily_total_precip, daily_avg_wind]
                 })
                 
                 st.dataframe(comparison_df.set_index("Parameter"), use_container_width=True)
 
             else:
-                st.warning("⚠️ Data historis tidak tersedia untuk bulan ini.")
+                st.warning("⚠️ Data prakiraan 7 hari tidak tersedia.")
 
         # Tabel & unduh
         st.markdown("<h3 style='font-size:20px;'>📊 Tabel Data Cuaca</h3>", unsafe_allow_html=True)
