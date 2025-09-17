@@ -3,7 +3,6 @@ import requests
 import pandas as pd
 import folium
 from streamlit_folium import st_folium
-import pytz
 
 # -----------------------------
 # Fungsi ambil data wilayah BMKG
@@ -29,10 +28,9 @@ def get_prakiraan_bmkg(adm4_code: str):
 # -----------------------------
 # Aplikasi Streamlit
 # -----------------------------
-st.set_page_config(page_title="Cuaca Perjalanan (BMKG)", layout="wide")
+st.set_page_config(page_title="Prakiraan Cuaca BMKG", layout="wide")
 
-st.title("🌦️ Cuaca Perjalanan (BMKG)")
-st.write("Editor: Ferri Kusuma (Stamet Juanda)")
+st.title("🌦️ Prakiraan Cuaca BMKG")
 
 # Ambil daftar wilayah
 wilayah_data = get_wilayah_bmkg()
@@ -73,28 +71,7 @@ if wilayah_data:
             st.subheader(f"Prakiraan Cuaca: {kelurahan}, {kecamatan}, {kabupaten}, {provinsi}")
 
             df = pd.DataFrame(prakiraan["data"])
-
-            # Normalisasi kolom waktu → pilih yang tersedia
-            if "jamCuaca" in df.columns:
-                waktu_col = "jamCuaca"
-            elif "local_datetime" in df.columns:
-                waktu_col = "local_datetime"
-            elif "tanggal" in df.columns:
-                waktu_col = "tanggal"
-            else:
-                waktu_col = None
-
-            if waktu_col:
-                df["waktu_lokal"] = pd.to_datetime(df[waktu_col])
-                # Convert ke WIB
-                tz = pytz.timezone("Asia/Jakarta")
-                df["waktu_lokal"] = df["waktu_lokal"].dt.tz_convert(tz)
-                df["waktu_lokal"] = df["waktu_lokal"].dt.strftime("%d-%m-%Y %H:%M")
-            else:
-                st.warning("Kolom waktu tidak ditemukan di data BMKG.")
-                df["waktu_lokal"] = None
-
-            # Tampilkan tabel
+            df["jamCuaca"] = pd.to_datetime(df["jamCuaca"])
             st.dataframe(df)
 
             # -----------------------------
@@ -109,10 +86,8 @@ if wilayah_data:
             st_map = st_folium(m, width=700, height=450)
 
             # Tambahkan keterangan
-            st.caption("⏰ Waktu ditampilkan dalam zona lokal Indonesia (WIB)")
             st.caption("ℹ️ Data prakiraan cuaca diambil dari BMKG (api.bmkg.go.id)")
         else:
             st.error("Data prakiraan cuaca tidak tersedia untuk wilayah ini.")
 else:
     st.error("Gagal mengambil daftar wilayah dari BMKG.")
-
