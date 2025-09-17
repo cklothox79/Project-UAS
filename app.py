@@ -3,92 +3,60 @@ import requests
 import pandas as pd
 import folium
 from streamlit_folium import st_folium
+import pytz
 
-# -----------------------------
-# Fungsi ambil data wilayah BMKG
-# -----------------------------
-@st.cache_data
-def get_wilayah_bmkg():
-    url = "https://api.bmkg.go.id/publik/wilayah"
-    r = requests.get(url, timeout=10)
-    if r.status_code == 200:
-        return r.json()
-    return None
+st.set_page_config(page_title="Cuaca Perjalanan BMKG", layout="wide")
 
-# -----------------------------
-# Fungsi ambil prakiraan cuaca BMKG
-# -----------------------------
-def get_prakiraan_bmkg(adm4_code: str):
-    url = f"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4={adm4_code}"
-    r = requests.get(url, timeout=10)
-    if r.status_code == 200:
-        return r.json()
-    return None
+st.title("🌦️ Cuaca Perjalanan (BMKG)")
+st.caption("Editor: Ferri Kusuma (Stamet Juanda)")
 
-# -----------------------------
-# Aplikasi Streamlit
-# -----------------------------
-st.set_page_config(page_title="Prakiraan Cuaca BMKG", layout="wide")
+# --- Daftar wilayah manual (adm4 BMKG) ---
+wilayah_lookup = {
+    "Jakarta Pusat - Kemayoran": "31.71.03.1001",
+    "Surabaya - Genteng": "35.78.06.1001",
+    "Bandung - Cicendo": "32.73.08.1001",
+    "Sidoarjo - Buduran": "35.15.06.1001"
+}
 
-st.title("🌦️ Prakiraan Cuaca BMKG")
+pilihan = st.selectbox("Pilih Wilayah:", list(wilayah_lookup.keys()))
+kode_wilayah = wilayah_lookup[pilihan]
 
-# Ambil daftar wilayah
-wilayah_data = get_wilayah_bmkg()
+if st.button("Ambil Data Cuaca"):
+    url = f"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4={kode_wilayah}"
 
-if wilayah_data:
-    # Dropdown provinsi
-    provinsi_list = sorted(set([w["provinsi"] for w in wilayah_data]))
-    provinsi = st.selectbox("Pilih Provinsi:", provinsi_list)
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
 
-    # Filter kabupaten/kota
-    kabupaten_list = sorted(set([w["kotkab"] for w in wilayah_data if w["provinsi"] == provinsi]))
-    kabupaten = st.selectbox("Pilih Kabupaten/Kota:", kabupaten_list)
+        if "data" not in data or not data["data"]:
+            st.error("Data cuaca tidak tersedia untuk wilayah ini.")
+        else:
+            lokasi = data["lokasi"]["kecamatan"] + ", " + data["lokasi"]["kabupaten/kota"]
 
-    # Filter kecamatan
-    kecamatan_list = sorted(set([w["kecamatan"] for w in wilayah_data if w["kotkab"] == kabupaten]))
-    kecamatan = st.selectbox("Pilih Kecamatan:", kecamatan_list)
+            # Ambil dataframe cuaca
+            df = pd.DataFrame(data["data"])
 
-    # Filter kelurahan (adm4)
-    kelurahan_list = [w for w in wilayah_data if w["kecamatan"] == kecamatan]
-    kelurahan_names = [w["kelurahan"] for w in kelurahan_list]
-    kelurahan = st.selectbox("Pilih Kelurahan:", kelurahan_names)
+            # Konversi jamCuaca ke waktu lokal WIB
+            if "jamCuaca" in df.columns:
+                df["jamCuaca"] = pd.to_datetime(df["jamCuaca"])
+                tz = pytz.timezone("Asia/Jakarta")
+                df["jamLokal"] = df["jamCuaca"].dt.tz_convert(tz).dt.strftime("%d-%m-%Y %H:%M WIB")
 
-    # Ambil adm4 code
-    adm4_code = None
-    lat, lon = -2.5, 118.0  # fallback tengah Indonesia
-    for w in kelurahan_list:
-        if w["kelurahan"] == kelurahan:
-            adm4_code = w["kode"]
-            lat = float(w["lat"])
-            lon = float(w["lon"])
-            break
-
-    if adm4_code:
-        # Ambil data prakiraan cuaca
-        prakiraan = get_prakiraan_bmkg(adm4_code)
-
-        if prakiraan and "data" in prakiraan:
-            st.subheader(f"Prakiraan Cuaca: {kelurahan}, {kecamatan}, {kabupaten}, {provinsi}")
-
-            df = pd.DataFrame(prakiraan["data"])
-            df["jamCuaca"] = pd.to_datetime(df["jamCuaca"])
+            st.subheader(f"📍 Lokasi: {lokasi}")
             st.dataframe(df)
 
-            # -----------------------------
             # Peta lokasi
-            # -----------------------------
-            m = folium.Map(location=[lat, lon], zoom_start=11)
-            folium.Marker(
-                [lat, lon],
-                popup=f"{kelurahan}, {kecamatan}",
-                tooltip="Lokasi"
-            ).add_to(m)
-            st_map = st_folium(m, width=700, height=450)
+            if "lokasi" in data and "lat" in data["lokasi"] and "lon" in data["lokasi"]:
+                m = folium.Map(location=[data["lokasi"]["lat"], data["lokasi"]["lon"]], zoom_start=12)
+                folium.Marker(
+                    [data["lokasi"]["lat"], data["lokasi"]["lon"]],
+                    popup=f"{lokasi}",
+                    tooltip="Lokasi Cuaca"
+                ).add_to(m)
+                st_folium(m, width=700, height=400)
 
-            # Tambahkan keterangan
-            st.caption("ℹ️ Data prakiraan cuaca diambil dari BMKG (api.bmkg.go.id)")
-        else:
-            st.error("Data prakiraan cuaca tidak tersedia untuk wilayah ini.")
-else:
-    st.error("Gagal mengambil daftar wilayah dari BMKG.")
+            st.caption("🛈 Data diambil dari BMKG (api.bmkg.go.id)")
 
+    except Exception as e:
+        st.error(f"Gagal mengambil data dari BMKG: {e}")
