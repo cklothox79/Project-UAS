@@ -32,7 +32,10 @@ if st.button("Ambil Data Cuaca"):
         if "data" not in data or not data["data"]:
             st.error("Data cuaca tidak tersedia untuk wilayah ini.")
         else:
-            lokasi = data["lokasi"]["kecamatan"] + ", " + data["lokasi"]["kabupaten/kota"]
+            lokasi_info = data.get("lokasi", {})
+            kecamatan = lokasi_info.get("kecamatan", "-")
+            kabupaten = lokasi_info.get("kabupaten/kota") or lokasi_info.get("kota") or lokasi_info.get("provinsi", "-")
+            lokasi = f"{kecamatan}, {kabupaten}"
 
             # Ambil dataframe cuaca
             df = pd.DataFrame(data["data"])
