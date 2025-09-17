@@ -91,3 +91,4 @@ if wilayah_data:
             st.error("Data prakiraan cuaca tidak tersedia untuk wilayah ini.")
 else:
     st.error("Gagal mengambil daftar wilayah dari BMKG.")
+
