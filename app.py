@@ -1,54 +1,62 @@
 import streamlit as st
 import requests
-import geopandas as gpd
-from streamlit_folium import st_folium
-import folium
 
-st.set_page_config(page_title="🌏 Peta Seismisitas BMKG", layout="wide")
-st.title("🌏 Peta Seismisitas BMKG")
-st.caption("Data real-time dari portal Satu Peta MKG (BMKG) – format WFS/GeoJSON")
+# =========================
+# KONFIGURASI HALAMAN
+# =========================
+st.set_page_config(
+    page_title="🌦️ Cuaca Perjalanan (BMKG)",
+    layout="centered"
+)
 
-# ==========================
-# Fungsi ambil GeoJSON BMKG
-# ==========================
-@st.cache_data(ttl=3600)
-def get_seismisitas():
-    # Endpoint contoh (lihat Link di portal)
-    # Ganti typeName sesuai nama layer aslinya di capabilities
-    url = "https://gis.bmkg.go.id/arcgis/services/Seismisitas/MapServer/WFSServer"
-    params = {
-        "service": "WFS",
-        "version": "1.0.0",
-        "request": "GetFeature",
-        "typeName": "Seismisitas",   # cek nama layer di 'Link'
-        "outputFormat": "geojson"
-    }
-    r = requests.get(url, params=params, timeout=30)
+st.title("🌦️ Cuaca Perjalanan (BMKG)")
+st.caption("Editor: Ferri Kusuma (Stamet Juanda)")
+
+# =========================
+# FUNGSI AMBIL DATA (cache 5 menit)
+# =========================
+@st.cache_data(ttl=300)
+def get_data(adm4: str) -> dict:
+    """Mengambil prakiraan cuaca dari API publik BMKG"""
+    url = f"https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4={adm4}"
+    r = requests.get(url, timeout=10)
     r.raise_for_status()
-    # WFS bisa langsung dibaca ke GeoDataFrame
-    gdf = gpd.read_file(r.text)
-    return gdf
+    return r.json()
 
-try:
-    gdf = get_seismisitas()
-except Exception as e:
-    st.error(f"Gagal mengambil data WFS BMKG: {e}")
-    st.stop()
+# =========================
+# PILIHAN WILAYAH
+# =========================
+wilayah = {
+    "Surabaya - Genteng": "35.78.06.1001",
+    "Sidoarjo - Buduran": "35.15.06.1001",
+    # Tambahkan wilayah lain di sini
+}
 
-st.success(f"✅ Data berhasil dimuat. Total titik: {len(gdf)}")
+pilih = st.selectbox("Pilih Wilayah:", list(wilayah.keys()))
+adm4 = wilayah[pilih]
 
-# ==========================
-# Peta interaktif Folium
-# ==========================
-m = folium.Map(location=[-2,118], zoom_start=4, tiles="CartoDB positron")
-for _, row in gdf.iterrows():
-    lat, lon = row.geometry.y, row.geometry.x
-    folium.CircleMarker(
-        location=[lat, lon],
-        radius=4,
-        popup=f"Magnitude: {row.get('magnitude','-')} | Date: {row.get('date','-')}",
-        color="red",
-        fill=True
-    ).add_to(m)
+# =========================
+# AMBIL DATA DENGAN SESSION
+# =========================
+if "cuaca" not in st.session_state or st.session_state.get("last_adm4") != adm4:
+    try:
+        st.session_state.cuaca = get_data(adm4)
+        st.session_state.last_adm4 = adm4
+    except Exception as e:
+        st.error(f"Gagal mengambil data dari BMKG: {e}")
 
-st_folium(m, width=800, height=500)
+# =========================
+# TAMPILKAN HASIL
+# =========================
+if "cuaca" in st.session_state:
+    data = st.session_state.cuaca
+    if isinstance(data, dict) and "data" in data:
+        st.success(f"✅ Data cuaca untuk {pilih} berhasil dimuat")
+        # Tampilkan seluruh JSON
+        st.json(data["data"])
+
+        # --- contoh ringkasan sederhana ---
+        # daily = data["data"][0]["cuaca"]  # sesuaikan dengan struktur BMKG
+        # st.write("Ringkasan:", daily)
+    else:
+        st.warning("⚠️ Data tidak lengkap dari BMKG")
