@@ -1,69 +1,92 @@
 import streamlit as st
-import folium
-from streamlit_folium import st_folium
-from datetime import date
-from utils.isdp_api import get_forecast
+import pandas as pd
+from utils.isdp_api import get_forecast   # Pastikan utils/isdp_api.py sudah dibuat
 
-st.set_page_config(page_title="Cuaca Perjalanan", page_icon="🌦️", layout="wide")
+# =======================
+# Aplikasi Cuaca Perjalanan
+# =======================
 
-# ----- Header -----
-st.title("🌦️ Cuaca Perjalanan")
-st.caption(
-    "Lihat prakiraan suhu, hujan, awan, kelembapan, dan angin setiap jam "
-    "untuk lokasi dan tanggal yang kamu pilih."
+st.set_page_config(page_title="Cuaca Perjalanan – BMKG API ISDP", layout="wide")
+st.title("🌦️ Cuaca Perjalanan – BMKG API ISDP")
+
+st.markdown(
+    """
+    Aplikasi ini menampilkan prakiraan cuaca berdasarkan **API ISDP BMKG**.
+    Pilih kode wilayah (Provinsi, Kota/Kab, Kecamatan, Desa) sesuai kode BIG/Permendagri.
+    """
 )
 
-# ----- Input -----
-col1, col2 = st.columns([2,1])
-with col1:
-    kota = st.text_input("Masukkan nama kota (opsional):")
-with col2:
-    tgl_perjalanan = st.date_input(
-        "Pilih tanggal perjalanan:",
-        value=date.today(),
-        min_value=date.today()
-    )
+# --- Input Kode Wilayah ---
+with st.sidebar:
+    st.header("📍 Pilih Wilayah (Kode BIG)")
+    adm1 = st.text_input("Kode Provinsi (adm1)", "61")
+    adm2 = st.text_input("Kode Kota/Kab (adm2)", "61.12")
+    adm3 = st.text_input("Kode Kecamatan (adm3)", "61.12.01")
+    adm4 = st.text_input("Kode Desa (adm4)", "61.12.01.2001")
+    st.caption("Gunakan format kode sesuai [kodewilayah.id](https://kodewilayah.id/)")
 
-st.markdown("### 📍 Klik lokasi di peta atau masukkan koordinat")
+# --- Tombol Ambil Data ---
+if st.button("Ambil Prakiraan Cuaca"):
+    with st.spinner("Mengambil data prakiraan dari BMKG..."):
+        data = get_forecast(adm1=adm1, adm2=adm2, adm3=adm3, adm4=adm4)
 
-# ----- Peta -----
-m = folium.Map(location=[-2.5, 118], zoom_start=5)
-st_map = st_folium(m, height=400, width=700)
+    if not data:
+        st.error("Gagal mengambil prakiraan atau data tidak ditemukan.")
+    else:
+        # ========================
+        # Tampilkan Lokasi
+        # ========================
+        lokasi = data.get("lokasi", {})
+        st.subheader(
+            f"📍 {lokasi.get('desa','')} – {lokasi.get('kecamatan','')} "
+            f"({lokasi.get('kotkab','')}, {lokasi.get('provinsi','')})"
+        )
 
-# Koordinat hasil klik
-clicked_lat = None
-clicked_lon = None
-if st_map and st_map.get("last_clicked"):
-    clicked_lat = st_map["last_clicked"]["lat"]
-    clicked_lon = st_map["last_clicked"]["lng"]
-    st.success(f"Koordinat terpilih: {clicked_lat:.4f}, {clicked_lon:.4f}")
+        # ========================
+        # Parsing Data Prakiraan
+        # ========================
+        cuaca_data = []
+        for item in data.get("data", []):
+            if "cuaca" in item and item["cuaca"]:
+                # cuaca adalah list bersarang (list dalam list)
+                for jam in item["cuaca"][0]:
+                    cuaca_data.append({
+                        "Waktu Lokal": jam.get("local_datetime"),
+                        "Suhu (°C)": jam.get("t"),
+                        "Kelembapan (%)": jam.get("hu"),
+                        "Awan (%)": jam.get("tcc"),
+                        "Kecepatan Angin (kt)": jam.get("ws"),
+                        "Cuaca": jam.get("weather_desc"),
+                        "Icon": jam.get("image")
+                    })
 
-# ----- Ambil Data -----
-if clicked_lat and clicked_lon:
-    if st.button("Ambil Prakiraan Cuaca"):
-        with st.spinner("Mengambil data prakiraan BMKG..."):
-            data = get_forecast(clicked_lat, clicked_lon)
+        if cuaca_data:
+            df = pd.DataFrame(cuaca_data)
+            # urutkan waktu jika diperlukan
+            df = df.sort_values("Waktu Lokal").reset_index(drop=True)
 
-        if not data:
-            st.error("Gagal mengambil prakiraan.")
+            # ========================
+            # Tabel Prakiraan
+            # ========================
+            st.markdown("### 🕒 Prakiraan Jam-an")
+            st.dataframe(df, use_container_width=True)
+
+            # ========================
+            # Grafik Suhu
+            # ========================
+            st.markdown("### 🌡️ Grafik Suhu")
+            st.line_chart(
+                data=df.set_index("Waktu Lokal")["Suhu (°C)"],
+                use_container_width=True
+            )
+
+            # ========================
+            # Grafik Kelembapan
+            # ========================
+            st.markdown("### 💧 Grafik Kelembapan")
+            st.line_chart(
+                data=df.set_index("Waktu Lokal")["Kelembapan (%)"],
+                use_container_width=True
+            )
         else:
-            forecasts = data.get("data", {}).get("forecasts", [])
-            if not forecasts:
-                st.warning("Data prakiraan tidak ditemukan.")
-            else:
-                st.markdown(f"### 🌍 Prakiraan Cuaca {tgl_perjalanan}")
-                # tampilkan 12 jam pertama
-                for jam in forecasts[:12]:
-                    time = jam.get("time")
-                    suhu = jam.get("t")
-                    hujan = jam.get("weather", "-")
-                    kelembapan = jam.get("hu")
-                    angin = jam.get("ws")
-                    arah_angin = jam.get("wd")
-                    st.write(
-                        f"⏰ {time} | 🌡️ {suhu}°C | 💧 {kelembapan}% | "
-                        f"💨 {angin} km/j ({arah_angin}) | ☁️ {hujan}"
-                    )
-
-else:
-    st.info("Silakan klik lokasi di peta untuk mendapatkan prakiraan.")
+            st.warning("Tidak ada data jam-an yang bisa ditampilkan.")
